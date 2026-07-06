@@ -161,6 +161,7 @@ export default function Home() {
     setTodos((prev) =>
       prev.map((t) => {
         if (!idSet.has(t.id)) return t;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { category: _cat, ...rest } = t;
         return rest;
       })
@@ -379,7 +380,7 @@ export default function Home() {
                         onChange={(e) => {
                           setGroupSelected((prev) => {
                             const next = new Set(prev);
-                            e.target.checked ? next.add(todo.id) : next.delete(todo.id);
+                            if (e.target.checked) { next.add(todo.id); } else { next.delete(todo.id); }
                             return next;
                           });
                         }}
