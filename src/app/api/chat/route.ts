@@ -40,7 +40,7 @@ Rules:
 - "complete": include an "ids" array of todo ids to mark as done.
 - "uncomplete": include an "ids" array of todo ids to unmark.
 - "delete": include an "ids" array of todo ids to remove. Requires user confirmation — the "message" should say what will be deleted.
-- "categorize": include an "ids" array and a "category" string. Used to assign or move items to a category — whether they are currently ungrouped or already in a different group. The "ids" array can span multiple existing groups. Use a single "categorize" action for requests like "move X and Y to Groceries", including all relevant ids at once.
+- "categorize": include an "ids" array and a "category" string. Used to assign or move items to a category — whether they are currently ungrouped or already in a different group. The "ids" array can span multiple existing groups. Use a single "categorize" action for requests like "move X and Y to Groceries", including all relevant ids at once. When suggesting a group, include ALL related ids in the ids array at once, not just one. Never suggest moving a single item — minimum 2 ids for any categorize suggestion.
 - "ungroup": include an "ids" array. Removes the category from those todos but keeps them in the list.
 - "delete_group": include an "ids" array of todos to delete entirely (used for group deletion). Requires user confirmation — the "message" should say what will be deleted.
 - "none": for regular conversation. "ids", "items", and "category" should be omitted or null.

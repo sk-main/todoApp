@@ -27,6 +27,7 @@ export default function Home() {
   const [showGroupPanel, setShowGroupPanel] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupSelected, setGroupSelected] = useState<Set<string>>(new Set());
+  const [isLoadingTodos, setIsLoadingTodos] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,37 +35,104 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  async function checkForGroupSuggestions(currentTodos: Todo[]) {
+  // Load todos on mount
+  useEffect(() => {
+    setIsLoadingTodos(true);
+    fetch("/api/todos")
+      .then((r) => r.json())
+      .then((data) => setTodos(data.todos ?? []))
+      .catch(() => {})
+      .finally(() => setIsLoadingTodos(false));
+  }, []);
+
+  // Persist todos whenever they change
+  useEffect(() => {
+    if (isLoadingTodos) return;
+    fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ todos }),
+    }).catch(() => {});
+  }, [todos]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function applySuggestionReply(data: { reply: string }, label: string) {
+    console.log(`${label} response:`, data.reply);
+    try {
+      const parsed = JSON.parse(data.reply);
+      if (
+        parsed.action === "categorize" &&
+        Array.isArray(parsed.ids) &&
+        parsed.ids.length > 0 &&
+        typeof parsed.category === "string"
+      ) {
+        setPendingCategorize({ ids: parsed.ids, category: parsed.category });
+        return true;
+      } else if (parsed.action === "none") {
+        console.log(`${label}: no suggestion needed`);
+      }
+    } catch {
+      // silently ignore parse errors
+    }
+    return false;
+  }
+
+  async function checkForExistingGroupSuggestion(currentTodos: Todo[]) {
     if (pendingCategorize) return;
 
     const ungroupedTodos = currentTodos.filter((t) => !t.category);
-    if (ungroupedTodos.length < 3) return;
+    if (ungroupedTodos.length === 0) return;
+
+    const existingCategories = Array.from(new Set(
+      currentTodos.map((t) => t.category).filter((c): c is string => !!c)
+    ));
+    if (existingCategories.length === 0) return;
+
+    const latestUngrouped = ungroupedTodos[ungroupedTodos.length - 1];
+    console.log("checkForExistingGroupSuggestion called for:", latestUngrouped.text);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: "Analyze my todo list and suggest ONE categorize action if you see 3 or more ungrouped items that clearly belong together, OR if any ungrouped items clearly fit an existing category. Only suggest if confident. Otherwise respond with action none and no message." }],
+          messages: [{ role: "user", content: `Does this todo: "${latestUngrouped.text}" clearly fit into any of these existing categories: ${existingCategories.join(", ")}? If yes return categorize with just that todo's id and the matching category. If not a clear fit, return none.` }],
           todos: currentTodos,
         }),
       });
       const data = await res.json();
-      try {
-        const parsed = JSON.parse(data.reply);
-        if (
-          parsed.action === "categorize" &&
-          Array.isArray(parsed.ids) &&
-          parsed.ids.length > 0 &&
-          typeof parsed.category === "string"
-        ) {
-          setPendingCategorize({ ids: parsed.ids, category: parsed.category });
-        }
-      } catch {
-        // silently ignore parse errors
-      }
+      await applySuggestionReply(data, "existingGroup");
     } catch {
       // silently ignore network errors
+    }
+  }
+
+  async function checkForNewGroupSuggestion(currentTodos: Todo[]) {
+    if (pendingCategorize) return;
+
+    const ungroupedTodos = currentTodos.filter((t) => !t.category);
+    if (ungroupedTodos.length < 3) return;
+    console.log("checkForNewGroupSuggestion called, ungrouped count:", ungroupedTodos.length);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "Do 3 or more of these ungrouped todos belong together in a new category? If yes return categorize with all their ids and a new category name. Minimum 2 ids. If no clear pattern, return none." }],
+          todos: ungroupedTodos,
+        }),
+      });
+      const data = await res.json();
+      await applySuggestionReply(data, "newGroup");
+    } catch {
+      // silently ignore network errors
+    }
+  }
+
+  async function checkForGroupSuggestions(currentTodos: Todo[]) {
+    await checkForExistingGroupSuggestion(currentTodos);
+    if (!pendingCategorize) {
+      await checkForNewGroupSuggestion(currentTodos);
     }
   }
 
@@ -355,11 +423,13 @@ export default function Home() {
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTodo()}
               placeholder="Add a task..."
-              className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-500"
+              disabled={isLoadingTodos}
+              className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm placeholder-neutral-500 focus:outline-none focus:border-neutral-500 disabled:opacity-50"
             />
             <button
               onClick={addTodo}
-              className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg text-sm font-medium transition-colors"
+              disabled={isLoadingTodos}
+              className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
             >
               Add
             </button>
@@ -367,9 +437,11 @@ export default function Home() {
 
           {/* Todo items grouped */}
           <ul className="flex flex-col gap-2 overflow-y-auto flex-1">
-            {todos.length === 0 && (
+            {isLoadingTodos ? (
+              <li className="text-sm text-neutral-600 mt-2">Loading...</li>
+            ) : todos.length === 0 ? (
               <li className="text-sm text-neutral-600 mt-2">No tasks yet.</li>
-            )}
+            ) : null}
 
             {categoryOrder.map((cat) => {
               const catTodos = byCategory[cat];
@@ -490,10 +562,12 @@ export default function Home() {
               onConfirm={() => {
                 const { ids, category } = pendingCategorize;
                 const idSet = new Set(ids);
-                setTodos((prev) =>
-                  prev.map((t) => (idSet.has(t.id) ? { ...t, category } : t))
+                const updatedTodos = todos.map((t) =>
+                  idSet.has(t.id) ? { ...t, category } : t
                 );
+                setTodos(updatedTodos);
                 setPendingCategorize(null);
+                setTimeout(() => checkForGroupSuggestions(updatedTodos), 500);
               }}
               onCancel={() => setPendingCategorize(null)}
             />
