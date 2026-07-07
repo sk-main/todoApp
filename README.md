@@ -2,10 +2,6 @@
 
 A full-stack todo app built with Next.js and deployed on Vercel. Integrates Claude AI using structured JSON responses that execute real actions on the UI — complete, delete, add, and categorize todos via natural language. Uses the Anthropic Files API to pass todo context to Claude as a file reference, and Upstash Redis for persistent storage across sessions. Features automatic AI-driven category suggestions and a confirmation safeguard system for destructive actions.
 
-## Live Demo
-
-[https://todo-app-wheat-seven-79.vercel.app](https://todo-app-wheat-seven-79.vercel.app)
-
 ## Claude Features
 
 - **Structured JSON actions** — Claude responds with typed actions (`complete`, `delete`, `add`, `categorize`) that are applied directly to the UI
