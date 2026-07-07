@@ -18,31 +18,9 @@ A full-stack todo app built with Next.js and deployed on Vercel. Integrates Clau
 - [Anthropic Claude API](https://www.anthropic.com)
 - [Vercel](https://vercel.com)
 
-## Local Development
+## Getting Started
 
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/sk-main/todoApp.git
-   cd todoApp
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Create `.env.local` with your API key:
-   ```
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   ```
-   > **Note:** Upstash Redis is required for persistence. Without it the app still works but todos won't survive a page refresh.
-
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-5. Open [http://localhost:3000](http://localhost:3000)
+> This project is designed to be deployed on Vercel with Upstash Redis. Local development without these services will work but todos won't persist.
 
 ## Deploying to Vercel
 
