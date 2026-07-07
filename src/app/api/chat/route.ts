@@ -52,7 +52,19 @@ Rules:
 - Never wrap the JSON in markdown or code blocks. Output raw JSON only.`;
 
     const fileId = await redis.get<string>("todos-file-id");
-    const reply = await askClaude(messages, systemPrompt, fileId ?? undefined);
+
+    let reply: string;
+    try {
+      reply = await askClaude(messages, systemPrompt, fileId ?? undefined);
+    } catch (fileErr: unknown) {
+      const msg = fileErr instanceof Error ? fileErr.message : String(fileErr);
+      if (fileId && msg.includes("404")) {
+        await redis.del("todos-file-id");
+        reply = await askClaude(messages, systemPrompt, undefined);
+      } else {
+        throw fileErr;
+      }
+    }
 
     return NextResponse.json({ reply });
   } catch (error) {
