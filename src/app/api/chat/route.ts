@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Redis } from "@upstash/redis";
 import { askClaude } from "../../../../lib/claude";
+
+const redis = Redis.fromEnv();
 
 interface Todo {
   id: string;
@@ -48,7 +51,8 @@ Rules:
 - The "message" field is what the user sees — keep it concise and natural.
 - Never wrap the JSON in markdown or code blocks. Output raw JSON only.`;
 
-    const reply = await askClaude(messages, systemPrompt);
+    const fileId = await redis.get<string>("todos-file-id");
+    const reply = await askClaude(messages, systemPrompt, fileId ?? undefined);
 
     return NextResponse.json({ reply });
   } catch (error) {
