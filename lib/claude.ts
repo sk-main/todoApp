@@ -17,7 +17,7 @@ export async function askClaude(
           {
             type: "document",
             source: { type: "file", file_id: fileId },
-          } as Anthropic.DocumentBlockParam,
+          } as unknown as Anthropic.DocumentBlockParam,
           { type: "text", text: msg.content },
         ],
       };
